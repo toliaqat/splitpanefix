@@ -135,9 +135,29 @@ Copy-Item "settings.json.bak-20240115-143022" "settings.json"
 
 ## WSL Support
 
-The Windows Terminal keybindings configured by this script work for WSL profiles too! You just need to configure your WSL shell to emit the OSC 9;9 escape sequence.
+The Windows Terminal keybindings configured by this script work for WSL profiles too! But there's one critical setup step.
 
-### Option 1: Oh My Posh in WSL (recommended)
+### Important: Fix Your WSL Profile
+
+By default, Windows Terminal may use the distro's launcher (e.g., `Ubuntu.exe` or `Ubuntu2404.exe`) which **does not pass the current working directory** to the shell. You need to change it to use `wsl.exe` directly.
+
+In Windows Terminal Settings → Profiles → Your Ubuntu Profile → Command line, change it to:
+
+```
+wsl.exe -d Ubuntu-24.04
+```
+
+(Replace `Ubuntu-24.04` with your distro name from `wsl -l -v`)
+
+Also set **Starting directory** to `~` (or leave it blank).
+
+See [microsoft/terminal#3158](https://github.com/microsoft/terminal/issues/3158#issuecomment-2789336476) for details.
+
+### Configure Your Shell
+
+Make sure your shell emits the OSC 9;9 escape sequence:
+
+#### Option 1: Oh My Posh in WSL (recommended)
 
 If you use Oh My Posh in WSL, just make sure your theme has `pwd: osc99` at the root level:
 
@@ -149,7 +169,7 @@ If you use Oh My Posh in WSL, just make sure your theme has `pwd: osc99` at the 
 }
 ```
 
-Then init it in `~/.bashrc`:
+Then init it in `~/.bashrc` (not `.profile` - bashrc runs for non-login shells like split panes):
 
 ```bash
 eval "$(oh-my-posh init bash --config '~/your-theme.omp.json')"
@@ -157,7 +177,7 @@ eval "$(oh-my-posh init bash --config '~/your-theme.omp.json')"
 
 Oh My Posh automatically handles the `wslpath` conversion for you.
 
-### Option 2: Without Oh My Posh
+#### Option 2: Without Oh My Posh
 
 Add this to your `~/.bashrc`:
 
@@ -167,7 +187,7 @@ PROMPT_COMMAND=${PROMPT_COMMAND:+"$PROMPT_COMMAND; "}'printf "\e]9;9;%s\e\\" "$(
 
 The `wslpath -w` converts Linux paths (`/home/user/project`) to Windows paths (`\\wsl$\Ubuntu\home\user\project`) so Windows Terminal can understand them.
 
-### For Zsh users
+#### For Zsh users
 
 Add to `~/.zshrc`:
 
