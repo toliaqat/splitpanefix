@@ -523,7 +523,38 @@ if ($ompInstalled) {
     }
 }
 else {
-    Write-Log "Oh My Posh not installed - skipping OMP configuration"
+    Write-Log "Oh My Posh not installed - adding OSC 9;9 prompt function"
+    
+    # Add the prompt function that emits OSC 9;9 for directory tracking
+    $profileContent = Get-Content $profilePath -Raw
+    if (-not $profileContent) { $profileContent = "" }
+    
+    # Check if there's already an OSC 9;9 prompt or the marker
+    if ($profileContent -notmatch 'OSC 9;9' -and $profileContent -notmatch '\[char\]27\]\]9;9') {
+        $oscPromptFunction = @'
+
+# OSC 9;9 - Tell Windows Terminal the current directory (for split pane directory inheritance)
+# Added by Fix-SplitPanePersistence.ps1
+function prompt {
+    $loc = $executionContext.SessionState.Path.CurrentLocation
+    $out = ""
+    if ($loc.Provider.Name -eq "FileSystem") {
+        $out += "$([char]27)]9;9;`"$($loc.ProviderPath)`"$([char]27)\"
+    }
+    $out += "PS $loc$('>' * ($nestedPromptLevel + 1)) "
+    return $out
+}
+'@
+        if ($PSCmdlet.ShouldProcess($profilePath, "Add OSC 9;9 prompt function")) {
+            Backup-File -Path $profilePath
+            Add-Content -Path $profilePath -Value $oscPromptFunction
+            Write-Log "Added OSC 9;9 prompt function to profile"
+            $script:ChangesMode = $true
+        }
+    }
+    else {
+        Write-Log "Profile already has OSC 9;9 prompt configuration" -Verbose
+    }
 }
 
 # Step 6: Update Windows Terminal

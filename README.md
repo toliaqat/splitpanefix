@@ -45,10 +45,13 @@ This script configures three things to work together:
 - Comments out any custom `function prompt { }` blocks that would override Oh My Posh (with backup)
 - Removes duplicate Oh My Posh init lines if present
 
-### 2. Oh My Posh Theme
+### 2. Oh My Posh Theme (if installed)
 - Locates your active theme from the profile
 - Adds `"pwd": "osc99"` to the theme's root JSON object
 - If the theme is in the built-in themes folder, copies it to `%LOCALAPPDATA%\oh-my-posh\themes` first (so updates don't overwrite your changes)
+
+### 2b. No Oh My Posh? No problem!
+If Oh My Posh isn't installed, the script adds a `prompt` function to your profile that emits the [OSC 9;9 escape sequence](https://learn.microsoft.com/en-us/windows/terminal/tutorials/new-tab-same-directory#powershell-powershellexe-or-pwshexe) directly. This tells Windows Terminal your current directory without needing OMP.
 
 ### 3. Windows Terminal Settings
 - Adds or updates keybindings in `settings.json`:
@@ -108,7 +111,7 @@ The `splitMode: duplicate` setting in Windows Terminal keybindings tells it to u
 
 - **Backups**: Every modified file gets a timestamped backup (e.g., `settings.json.bak-20240115-143022`)
 - **Idempotent**: Safe to run multiple times. Re-running when already configured makes no changes.
-- **Graceful degradation**: If Oh My Posh isn't installed, the script still configures Windows Terminal keybindings.
+- **Graceful degradation**: If Oh My Posh isn't installed, the script adds an OSC 9;9 prompt function to your profile instead.
 
 ## Rollback
 
@@ -128,7 +131,7 @@ Copy-Item "settings.json.bak-20240115-143022" "settings.json"
 - Windows 11 (or Windows 10 with Windows Terminal)
 - PowerShell 7+ (`pwsh`)
 - Windows Terminal (Store or standalone)
-- Oh My Posh v11+ (optional, but recommended)
+- Oh My Posh v11+ (optional - script adds fallback prompt if not installed)
 
 ## References
 
