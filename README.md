@@ -133,11 +133,51 @@ Copy-Item "settings.json.bak-20240115-143022" "settings.json"
 - Windows Terminal (Store or standalone)
 - Oh My Posh v11+ (optional - script adds fallback prompt if not installed)
 
+## WSL Support
+
+The Windows Terminal keybindings configured by this script work for WSL profiles too! You just need to configure your WSL shell to emit the OSC 9;9 escape sequence.
+
+### Option 1: Oh My Posh in WSL (recommended)
+
+If you use Oh My Posh in both PowerShell and WSL, you can share the same theme file. The theme already has `pwd: osc99` after running this script.
+
+Add to your `~/.bashrc`:
+
+```bash
+eval "$(oh-my-posh init bash --config '/mnt/c/Users/YOUR_USERNAME/path/to/theme.omp.json')"
+```
+
+Oh My Posh automatically handles the `wslpath` conversion for you.
+
+### Option 2: Without Oh My Posh
+
+Add this to your `~/.bashrc`:
+
+```bash
+PROMPT_COMMAND=${PROMPT_COMMAND:+"$PROMPT_COMMAND; "}'printf "\e]9;9;%s\e\\" "$(wslpath -w "$PWD")"'
+```
+
+The `wslpath -w` converts Linux paths (`/home/user/project`) to Windows paths (`\\wsl$\Ubuntu\home\user\project`) so Windows Terminal can understand them.
+
+### For Zsh users
+
+Add to `~/.zshrc`:
+
+```zsh
+keep_current_path() {
+  printf "\e]9;9;%s\e\\" "$(wslpath -w "$PWD")"
+}
+precmd_functions+=(keep_current_path)
+```
+
+After editing your shell config, restart your terminal. Split panes and duplicate tabs will now preserve your WSL directory too.
+
 ## References
 
 - [Microsoft Docs: New tab same directory](https://learn.microsoft.com/en-us/windows/terminal/tutorials/new-tab-same-directory#powershell-powershellexe-or-pwshexe) - Official tutorial on shell integration
 - [Oh My Posh Discussion #1532](https://github.com/JanDeDobbeleer/oh-my-posh/discussions/1532) - Original discussion on OSC 99 support
 - [Windows Terminal Shell Integration](https://learn.microsoft.com/en-us/windows/terminal/tutorials/shell-integration) - Deep dive on escape sequences
+- [Oh My Posh pwd setting](https://ohmyposh.dev/docs/configuration/general#settings) - OSC 99/7/51 documentation
 
 ## License
 
