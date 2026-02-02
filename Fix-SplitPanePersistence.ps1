@@ -122,16 +122,26 @@ function Get-OMPInstalled {
 
 function Get-OMPInitLines {
     param([string]$ProfileContent)
-    $pattern = '^\s*oh-my-posh\s+init\s+pwsh\s+--config\s+[''"]?([^''"|\s]+)[''"]?\s*\|\s*Invoke-Expression'
+    # Handle: double-quoted paths (may contain $(), spaces), single-quoted paths, or unquoted simple paths
+    $pattern = '^\s*oh-my-posh\s+init\s+pwsh\s+--config\s+(?:"([^"]+)"|''([^'']+)''|([^|\s]+))\s*\|\s*Invoke-Expression'
     $matches = [regex]::Matches($ProfileContent, $pattern, [System.Text.RegularExpressions.RegexOptions]::Multiline)
     return $matches
 }
 
 function Get-ThemePathFromProfile {
     param([string]$ProfileContent)
-    $pattern = "oh-my-posh\s+init\s+pwsh\s+--config\s+['""]?([^'""|\s]+)['""]?\s*\|\s*Invoke-Expression"
+    # Handle: double-quoted paths (may contain $(), spaces), single-quoted paths, or unquoted simple paths
+    $pattern = 'oh-my-posh\s+init\s+pwsh\s+--config\s+(?:"([^"]+)"|''([^'']+)''|([^|\s]+))\s*\|\s*Invoke-Expression'
     if ($ProfileContent -match $pattern) {
-        $themePath = $Matches[1]
+        # Extract from whichever capture group matched
+        $themePath = if ($Matches[1]) { $Matches[1] } elseif ($Matches[2]) { $Matches[2] } else { $Matches[3] }
+
+        # Handle $(Split-Path $PROFILE) pattern - expand to actual profile directory
+        if ($themePath -match '\$\(Split-Path\s+\$PROFILE\)') {
+            $profileDir = Split-Path $PROFILE -Parent
+            $themePath = $themePath -replace '\$\(Split-Path\s+\$PROFILE\)', $profileDir
+        }
+
         # Expand environment variables - handle %VAR% syntax
         $themePath = [System.Environment]::ExpandEnvironmentVariables($themePath)
         # Handle PowerShell variable syntax like $env:POSH_THEMES_PATH or $env:COMPUTERNAME
@@ -183,12 +193,32 @@ function Fix-ProfileOMPInit {
     
     if ($initLines.Count -eq 0) {
         # No init line found - add one with default theme
-        $defaultTheme = if ($env:POSH_THEMES_PATH) { 
-            Join-Path $env:POSH_THEMES_PATH "jandedobbeleer.omp.json" 
-        } else { 
-            "~/.oh-my-posh/themes/jandedobbeleer.omp.json" 
+        # Use profile-relative path that works with OneDrive sync and local profiles
+        $defaultThemeLiteral = '$(Split-Path $PROFILE)\.oh-my-posh\themes\jandedobbeleer.omp.json'
+        $defaultThemeExpanded = Join-Path (Split-Path $PROFILE -Parent) ".oh-my-posh\themes\jandedobbeleer.omp.json"
+
+        # Create theme directory and copy default theme if needed
+        $themeDir = Split-Path $defaultThemeExpanded -Parent
+        if (-not (Test-Path $themeDir)) {
+            if ($PSCmdlet.ShouldProcess($themeDir, "Create theme directory")) {
+                New-Item -ItemType Directory -Path $themeDir -Force | Out-Null
+                Write-Log "Created theme directory: $themeDir" -Verbose
+            }
         }
-        $initLine = "`noh-my-posh init pwsh --config '$defaultTheme' | Invoke-Expression`n"
+
+        # Copy default theme from POSH_THEMES_PATH if available and target doesn't exist
+        if (-not (Test-Path $defaultThemeExpanded) -and $env:POSH_THEMES_PATH) {
+            $sourceTheme = Join-Path $env:POSH_THEMES_PATH "jandedobbeleer.omp.json"
+            if (Test-Path $sourceTheme) {
+                if ($PSCmdlet.ShouldProcess($sourceTheme, "Copy default theme to user directory")) {
+                    Copy-Item -Path $sourceTheme -Destination $defaultThemeExpanded -Force
+                    Write-Log "Copied default theme to: $defaultThemeExpanded" -Verbose
+                }
+            }
+        }
+
+        # Use double quotes so $(Split-Path $PROFILE) is evaluated at runtime
+        $initLine = "`noh-my-posh init pwsh --config `"$defaultThemeLiteral`" | Invoke-Expression`n"
         $content += $initLine
         $modified = $true
         Write-Log "Added Oh My Posh init line to profile"
